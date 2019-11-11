@@ -266,6 +266,25 @@ summary(lme)
     **Description:**
     Evaluates whether a fitted mixed model is singular, i.e. the parameters are on the boundary of the feasible
     parameter space: variances of one or more linear combinations of effects are (close to) zero.
+    
+    Details
+    Complex mixed-effect models (i.e., those with a large number of variance-covariance parameters) frequently result in singular fits, i.e. estimated variance-covariance matrices with less than full rank. Less technically, this means that some "dimensions" of the variance-covariance matrix have been estimated as exactly zero. For scalar random effects such as intercept-only models, or 2-dimensional random effects such as intercept+slope models, singularity is relatively easy to detect because it leads to random-effect variance estimates of (nearly) zero, or estimates of correlations that are (almost) exactly -1 or 1. However, for more complex models (variance-covariance matrices of dimension >=3) singularity can be hard to detect; models can often be singular without any of their individual variances being close to zero or correlations being close to +/-1.
+
+    This function performs a simple test to determine whether any of the random effects covariance matrices of a fitted model are singular. The rePCA method provides more detail about the singularity pattern, showing the standard deviations of orthogonal variance components and the mapping from variance terms in the model to orthogonal components (i.e., eigenvector/rotation matrices).
+
+    While singular models are statistically well defined (it is theoretically sensible for the true maximum likelihood estimate to correspond to a singular fit), there are real concerns that (1) singular fits correspond to overfitted models that may have poor power; (2) chances of numerical problems and mis-convergence are higher for singular models (e.g. it may be computationally difficult to compute profile confidence intervals for such models); (3) standard inferential procedures such as Wald statistics and likelihood ratio tests may be inappropriate.
+
+    There is not yet consensus about how to deal with singularity, or more generally to choose which random-effects specification (from a range of choices of varying complexity) to use. Some proposals include:
+
+    - avoid fitting overly complex models in the first place, i.e. design experiments/restrict models a priori such that the variance-covariance matrices can be estimated precisely enough to avoid singularity (Matuschek et al 2017)
+
+    - use some form of model selection to choose a model that balances predictive accuracy and overfitting/type I error (Bates et al 2015, Matuschek et al 2017)
+
+    “keep it maximal”, i.e. fit the most complex model consistent with the experimental design, removing only terms required to allow a non-singular fit (Barr et al. 2013), or removing further terms based on p-values or AIC
+
+    - use a partially Bayesian method that produces maximum a posteriori (MAP) estimates using regularizing priors to force the estimated random-effects variance-covariance matrices away from singularity (Chung et al 2013, blme package)
+
+    - use a fully Bayesian method that both regularizes the model via informative priors and gives estimates and credible intervals for all parameters that average over the uncertainty in the random effects parameters (Gelman and Hill 2006, McElreath 2015; MCMCglmm, rstanarm and brms packages)
 
 Here, we have changed the random effects, which now look a little more complicated. The notation “(1 + reprocondition|subject)” tells the model to estimate differing baseline levels of grooming duration (the intercept, represented by 1) as well as differing responses to the main factor in question, which is reproductive condition in this case. We do the same for parity.
 
@@ -311,5 +330,25 @@ In 2013, Nakagawa & Schielzeth changed that by publishing a simple and effective
 - AIC is not comparable across datasets, and so fit is not generalizeable
 
 In their paper, Nakagawa & Schielzeth propose two different measures of ‘variance explained’ for mixed models:
-- Marginal (R^2^~GLMM(m)~): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects.
-- Conditional (R^2^~GLMM(c)~): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.
+- Marginal (***R^2^~GLMM(m)~***): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects.
+- Conditional (***R^2^~GLMM(c)~***): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.
+
+There is an easy way to assess ***R^2^~GLMM~*** in ***R*** using the r.squaredGLMM() function in the package {MuMIn}.
+
+**CHALLENGE 3**
+
+Compare the full, reduced, and null mixed models from our random slope exercise using an information theoretic approach. Is your best model the best fit (e.g., explain the most variance) for the dataset? How much more variance is explained by the random effects than the fixed effects alone?
+
+```{r}
+print(aictab(list(full, reduced, null), c("full", "reduced", "null")), LL = FALSE) # this uses the {AICcmodavg} package
+```
+
+```{r}
+r.squaredGLMM(full) # these use the {MuMIn} package
+r.squaredGLMM(reduced)
+r.squaredGLMM(null)
+```
+
+**GENERALIZED LINEAR MIXED MODELING**
+
+Just as we extended our standard linear modeling approach to include non normally distributed response variables/error structures, so too can we extend our mixed effects modeling to such situations. This is referred to as **generalized linear mixed modeling, or GLMM**. There are several ***R*** packages we can use to do this (e.g., {MCMCglmm}, {lme4} using the glmer() call). The methods for generating maximum likelihood parameter estimates under GLMMs are more complicated, but conceptually, the process is a simple extension of what we have talked about already.

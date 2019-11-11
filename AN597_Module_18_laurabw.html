@@ -667,7 +667,26 @@ anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
 <pre><code>*Test fitted model for (near) singularity*
 **Description:**
 Evaluates whether a fitted mixed model is singular, i.e. the parameters are on the boundary of the feasible
-parameter space: variances of one or more linear combinations of effects are (close to) zero.</code></pre>
+parameter space: variances of one or more linear combinations of effects are (close to) zero.
+
+Details
+Complex mixed-effect models (i.e., those with a large number of variance-covariance parameters) frequently result in singular fits, i.e. estimated variance-covariance matrices with less than full rank. Less technically, this means that some &quot;dimensions&quot; of the variance-covariance matrix have been estimated as exactly zero. For scalar random effects such as intercept-only models, or 2-dimensional random effects such as intercept+slope models, singularity is relatively easy to detect because it leads to random-effect variance estimates of (nearly) zero, or estimates of correlations that are (almost) exactly -1 or 1. However, for more complex models (variance-covariance matrices of dimension &gt;=3) singularity can be hard to detect; models can often be singular without any of their individual variances being close to zero or correlations being close to +/-1.
+
+This function performs a simple test to determine whether any of the random effects covariance matrices of a fitted model are singular. The rePCA method provides more detail about the singularity pattern, showing the standard deviations of orthogonal variance components and the mapping from variance terms in the model to orthogonal components (i.e., eigenvector/rotation matrices).
+
+While singular models are statistically well defined (it is theoretically sensible for the true maximum likelihood estimate to correspond to a singular fit), there are real concerns that (1) singular fits correspond to overfitted models that may have poor power; (2) chances of numerical problems and mis-convergence are higher for singular models (e.g. it may be computationally difficult to compute profile confidence intervals for such models); (3) standard inferential procedures such as Wald statistics and likelihood ratio tests may be inappropriate.
+
+There is not yet consensus about how to deal with singularity, or more generally to choose which random-effects specification (from a range of choices of varying complexity) to use. Some proposals include:
+
+- avoid fitting overly complex models in the first place, i.e. design experiments/restrict models a priori such that the variance-covariance matrices can be estimated precisely enough to avoid singularity (Matuschek et al 2017)
+
+- use some form of model selection to choose a model that balances predictive accuracy and overfitting/type I error (Bates et al 2015, Matuschek et al 2017)
+
+“keep it maximal”, i.e. fit the most complex model consistent with the experimental design, removing only terms required to allow a non-singular fit (Barr et al. 2013), or removing further terms based on p-values or AIC
+
+- use a partially Bayesian method that produces maximum a posteriori (MAP) estimates using regularizing priors to force the estimated random-effects variance-covariance matrices away from singularity (Chung et al 2013, blme package)
+
+- use a fully Bayesian method that both regularizes the model via informative priors and gives estimates and credible intervals for all parameters that average over the uncertainty in the random effects parameters (Gelman and Hill 2006, McElreath 2015; MCMCglmm, rstanarm and brms packages)</code></pre>
 <p>Here, we have changed the random effects, which now look a little more complicated. The notation “(1 + reprocondition|subject)” tells the model to estimate differing baseline levels of grooming duration (the intercept, represented by 1) as well as differing responses to the main factor in question, which is reproductive condition in this case. We do the same for parity.</p>
 <p>Looking at the coefficients of the new model, we see the effects. Each female now has a different intercept and a different coefficient for the slopes of grooming duration as a function of both reproductive condition and parity.</p>
 <pre class="r"><code>coefficients(lme)</code></pre>
@@ -731,7 +750,31 @@ full &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 + reproconditi
 <li>AIC cannot address the amount of variance explained by a model</li>
 <li>AIC is not comparable across datasets, and so fit is not generalizeable</li>
 </ul>
-<p>In their paper, Nakagawa &amp; Schielzeth propose two different measures of ‘variance explained’ for mixed models: - Marginal (R<sup>2</sup><sub>GLMM(m)</sub>): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects. - Conditional (R<sup>2</sup><sub>GLMM(c)</sub>): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.</p>
+<p>In their paper, Nakagawa &amp; Schielzeth propose two different measures of ‘variance explained’ for mixed models: - Marginal (<strong><em>R<sup>2</sup><sub>GLMM(m)</sub></em></strong>): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects. - Conditional (<strong><em>R<sup>2</sup><sub>GLMM(c)</sub></em></strong>): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.</p>
+<p>There is an easy way to assess <strong><em>R<sup>2</sup><sub>GLMM</sub></em></strong> in <strong><em>R</em></strong> using the r.squaredGLMM() function in the package {MuMIn}.</p>
+<p><strong>CHALLENGE 3</strong></p>
+<p>Compare the full, reduced, and null mixed models from our random slope exercise using an information theoretic approach. Is your best model the best fit (e.g., explain the most variance) for the dataset? How much more variance is explained by the random effects than the fixed effects alone?</p>
+<pre class="r"><code>print(aictab(list(full, reduced, null), c(&quot;full&quot;, &quot;reduced&quot;, &quot;null&quot;)), LL = FALSE) # this uses the {AICcmodavg} package</code></pre>
+<pre><code>## 
+## Model selection based on AICc:
+## 
+##          K   AICc Delta_AICc AICcWt Cum.Wt
+## full    10 836.65       0.00   0.91   0.91
+## null     9 842.51       5.87   0.05   0.96
+## reduced  9 842.66       6.02   0.04   1.00</code></pre>
+<pre class="r"><code>r.squaredGLMM(full) # these use the {MuMIn} package</code></pre>
+<pre><code>## Warning: &#39;r.squaredGLMM&#39; now calculates a revised statistic. See the help
+## page.</code></pre>
+<pre><code>##            R2m       R2c
+## [1,] 0.7220161 0.8103107</code></pre>
+<pre class="r"><code>r.squaredGLMM(reduced)</code></pre>
+<pre><code>##            R2m       R2c
+## [1,] 0.6778425 0.7897872</code></pre>
+<pre class="r"><code>r.squaredGLMM(null)</code></pre>
+<pre><code>##             R2m       R2c
+## [1,] 0.01442576 0.8841944</code></pre>
+<p><strong>GENERALIZED LINEAR MIXED MODELING</strong></p>
+<p>Just as we extended our standard linear modeling approach to include non normally distributed response variables/error structures, so too can we extend our mixed effects modeling to such situations. This is referred to as <strong>generalized linear mixed modeling, or GLMM</strong>. There are several <strong><em>R</em></strong> packages we can use to do this (e.g., {MCMCglmm}, {lme4} using the glmer() call). The methods for generating maximum likelihood parameter estimates under GLMMs are more complicated, but conceptually, the process is a simple extension of what we have talked about already.</p>
 </div>
 </div>
 
