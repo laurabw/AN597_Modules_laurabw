@@ -503,6 +503,235 @@ summary(lme)</code></pre>
 ##             (Intr) rprPOP
 ## rprcndtnPOP -0.208       
 ## parityP     -0.692  0.000</code></pre>
+<p>Let’s focus on the output for the random effects first. Have a look at the column standard deviation. The entry for <em>subject</em> shows us how much variability in grooming duration (apart from that explained by the fixed effects) is due to subject ID. The entry for <em>Residual</em> summarizes the remaining variability in grooming duration that is not due to <em>subject</em> nor to our fixed effects. This is our ϵ, the “random” deviations from the predicted values that are not due to either subject or our fixed effects.</p>
+<p>The fixed effects output mirrors the coefficient tables that we have seen previously in our linear models that have focused only on fixed effects. The coefficient “reproconditionPOP” is the <em>β</em> coefficient (slope) for the categorical effect of reproductive condition. The positive for the coefficient means that grooming duration is GREATER by 20.293 units for POP than for NONPOP females. Then, there’s a standard error associated with this slope, and a t value, which is simply the estimate divided by the standard error.</p>
+<p>The coefficient “parityP” is the <em>β</em> coefficient for the categorical effect of parity. The grooming duration associated with being parous versus nulliparous is GREATER by 109.65 units.</p>
+<p>The INTERCEPT in this case is the grooming duration associated with nulliparous, NONPOP females. Like the lm() function, the lmer() took whatever factor level came first in the alphabet to be the reference level for each fixed effect variable.</p>
+<p>Let’s also look at the coefficients coming out of the model:</p>
+<pre class="r"><code>coefficients(lme)</code></pre>
+<pre><code>## $subject
+##       (Intercept) reproconditionPOP parityP
+## Luna    142.76560          20.29286  109.65
+## Maya    137.37903          20.29286  109.65
+## Nina    118.37752          20.29286  109.65
+## Nipa    160.80055          20.29286  109.65
+## Sofia    99.80111          20.29286  109.65
+## Vita    137.92048          20.29286  109.65
+## 
+## attr(,&quot;class&quot;)
+## [1] &quot;coef.mer&quot;</code></pre>
+<p>We can see the separate intercepts, or “baseline” level of grooming received, associated with each female when they are (presumably) nulliparous and in a NONPOP reproductive condition. Note that not all females are, necessarily, ever seen in a particular parity or reproductive condition</p>
+<p><strong>STATISTICAL SIGNIFICANCE IN MIXED MODELS</strong></p>
+<p>In <strong>mixed effects models</strong>, it is not as straightfoward to determine p values associated with either overall models or individual coefficients as it is for standard linear models. However, using <strong>likelihood ratio tests</strong>, which we previously used for comparing generalized linear models, is one common approach. Likelihood is the probability of seeing the data we have actually collected <em>given</em> a particular model. The logic of the likelihood ratio test is to compare the likelihood of two models with each other, i.e., a model that includes the factor that we are interested in versus a reduced, nested model with that factor excluded.</p>
+<p>So… if we are interested in the effect of reproductive condition on grooming duration we could compare:</p>
+<p><em>grooming duration ~ condition + parity + (1|subject) + ϵ</em></p>
+<p><em>grooming duration ~ parity + (1|subject) + ϵ</em></p>
+<p>In <strong><em>R</em></strong>, we would do this as follows:</p>
+<pre class="r"><code>full &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), REML = FALSE)
+summary(full)</code></pre>
+<pre><code>## Linear mixed model fit by maximum likelihood  [&#39;lmerMod&#39;]
+## Formula: duration ~ reprocondition + parity + (1 | subject)
+##    Data: d
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##    825.7    837.9   -407.9    815.7       79 
+## 
+## Scaled residuals: 
+##     Min      1Q  Median      3Q     Max 
+## -2.2996 -0.5283 -0.1783  0.4032  3.2285 
+## 
+## Random effects:
+##  Groups   Name        Variance Std.Dev.
+##  subject  (Intercept) 388.6    19.71   
+##  Residual             836.4    28.92   
+## Number of obs: 84, groups:  subject, 6
+## 
+## Fixed effects:
+##                   Estimate Std. Error t value
+## (Intercept)        132.841     12.625  10.522
+## reproconditionPOP   20.293      6.311   3.215
+## parityP            109.650     17.288   6.343
+## 
+## Correlation of Fixed Effects:
+##             (Intr) rprPOP
+## rprcndtnPOP -0.250       
+## parityP     -0.685  0.000</code></pre>
+<pre class="r"><code>reduced &lt;- lmer(data = d, duration ~ parity + (1 | subject), REML = FALSE)
+summary(reduced)</code></pre>
+<pre><code>## Linear mixed model fit by maximum likelihood  [&#39;lmerMod&#39;]
+## Formula: duration ~ parity + (1 | subject)
+##    Data: d
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##    833.4    843.2   -412.7    825.4       80 
+## 
+## Scaled residuals: 
+##     Min      1Q  Median      3Q     Max 
+## -2.4996 -0.6492 -0.1198  0.6594  2.7072 
+## 
+## Random effects:
+##  Groups   Name        Variance Std.Dev.
+##  subject  (Intercept) 380.7    19.51   
+##  Residual             947.3    30.78   
+## Number of obs: 84, groups:  subject, 6
+## 
+## Fixed effects:
+##             Estimate Std. Error t value
+## (Intercept)   142.99      12.23  11.696
+## parityP       109.65      17.29   6.342
+## 
+## Correlation of Fixed Effects:
+##         (Intr)
+## parityP -0.707</code></pre>
+<p><em>NOTE: Here, we added the argument REML=FALSE to the lmer() function. This is necessary to do when we want to compare models using the likelihood ratio test. Basically, REML uses a different algorithm to determine likelihood values than ordinary likelihood, and, if we want to use these likelihoods to execute an LRT, we need to use ordinary likelihood. See this site for a more complete explanation of this issue.</em></p>
+<p>We perform the likelihood ratio test using the anova() function:</p>
+<pre class="r"><code>anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
+<pre><code>## Data: d
+## Models:
+## reduced: duration ~ parity + (1 | subject)
+## full: duration ~ reprocondition + parity + (1 | subject)
+##         Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(&gt;Chisq)   
+## reduced  4 833.43 843.15 -412.72   825.43                            
+## full     5 825.72 837.88 -407.86   815.72 9.7089      1   0.001834 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The results tell us that the model containing <em>reproductive condition</em> fits the data better than a null model lacking this variable. What about <em>parity</em>?</p>
+<pre class="r"><code>full &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), REML = FALSE)
+reduced &lt;- lmer(data = d, duration ~ reprocondition + (1 | subject), REML = FALSE)
+anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
+<pre><code>## Data: d
+## Models:
+## reduced: duration ~ reprocondition + (1 | subject)
+## full: duration ~ reprocondition + parity + (1 | subject)
+##         Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(&gt;Chisq)    
+## reduced  4 835.97 845.70 -413.99   827.97                             
+## full     5 825.72 837.88 -407.86   815.72 12.251      1   0.000465 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Based on this result, including <em>parity </em>also significantly improves the fit of our model.</p>
+<p><strong>CHALLENGE 2</strong></p>
+<p>Construct a model that includes an interaction of <em>reproductive condition</em> and <em>parity</em> and compare it to a model without the interaction term. Is the interaction of these two fixed effects significant?</p>
+<pre class="r"><code>full &lt;- lmer(data = d, duration ~ reprocondition * parity + (1 | subject), REML = FALSE)
+reduced &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), 
+    REML = FALSE)
+anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
+<pre><code>## Data: d
+## Models:
+## reduced: duration ~ reprocondition + parity + (1 | subject)
+## full: duration ~ reprocondition * parity + (1 | subject)
+##         Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(&gt;Chisq)
+## reduced  5 825.72 837.88 -407.86   815.72                         
+## full     6 826.41 840.99 -407.20   814.41 1.3124      1      0.252</code></pre>
+<p><strong>RANDOM SLOPE MODELS</strong></p>
+<p>In the exercise above, we included only estimation of a separate intercept for each female and presumed that the same relationship between grooming duration and reproductive condition + parity obtained for all females. But we can also allow that relationship to vary across subjects. We would indicate this model in formula notation as follows:</p>
+<pre class="r"><code>lme &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)</code></pre>
+<pre><code>## boundary (singular) fit: see ?isSingular</code></pre>
+<pre class="r"><code>summary(lme)</code></pre>
+<pre><code>## Linear mixed model fit by maximum likelihood  [&#39;lmerMod&#39;]
+## Formula: 
+## duration ~ reprocondition + parity + (1 + reprocondition | subject) +  
+##     (1 + parity | subject)
+##    Data: d
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##    833.6    857.9   -406.8    813.6       74 
+## 
+## Scaled residuals: 
+##     Min      1Q  Median      3Q     Max 
+## -2.4512 -0.6096 -0.1558  0.3850  3.2154 
+## 
+## Random effects:
+##  Groups    Name              Variance Std.Dev. Corr 
+##  subject   (Intercept)        84.206   9.176        
+##            reproconditionPOP   1.468   1.212   -1.00
+##  subject.1 (Intercept)       630.298  25.106        
+##            parityP           623.606  24.972   -1.00
+##  Residual                    835.670  28.908        
+## Number of obs: 84, groups:  subject, 6
+## 
+## Fixed effects:
+##                   Estimate Std. Error t value
+## (Intercept)        132.529     16.314   8.124
+## reproconditionPOP   20.293      6.328   3.207
+## parityP            110.272     17.279   6.382
+## 
+## Correlation of Fixed Effects:
+##             (Intr) rprPOP
+## rprcndtnPOP -0.211       
+## parityP     -0.902  0.000
+## convergence code: 0
+## boundary (singular) fit: see ?isSingular</code></pre>
+<p><em>Me: Check help to see what “isSingular” is by typing ?isSingular into the console and it will pop up on Help section on R Studio.</em></p>
+<p><em>Here is what it said:</em></p>
+<pre><code>*Test fitted model for (near) singularity*
+**Description:**
+Evaluates whether a fitted mixed model is singular, i.e. the parameters are on the boundary of the feasible
+parameter space: variances of one or more linear combinations of effects are (close to) zero.</code></pre>
+<p>Here, we have changed the random effects, which now look a little more complicated. The notation “(1 + reprocondition|subject)” tells the model to estimate differing baseline levels of grooming duration (the intercept, represented by 1) as well as differing responses to the main factor in question, which is reproductive condition in this case. We do the same for parity.</p>
+<p>Looking at the coefficients of the new model, we see the effects. Each female now has a different intercept and a different coefficient for the slopes of grooming duration as a function of both reproductive condition and parity.</p>
+<pre class="r"><code>coefficients(lme)</code></pre>
+<pre><code>## $subject
+##       (Intercept) reproconditionPOP   parityP
+## Luna     144.8703          19.47810 110.00238
+## Maya     137.6497          19.95481 110.14475
+## Nina     113.0691          21.57766 110.67020
+## Nipa     139.1938          19.85287  84.89985
+## Sofia    125.3344          20.76789 139.92633
+## Vita     135.0596          20.12581 105.99115
+## 
+## attr(,&quot;class&quot;)
+## [1] &quot;coef.mer&quot;</code></pre>
+<p>To then get p values associated with each of the fixed factors, we could use LRTs…</p>
+<p>First, for reproductive condition:</p>
+<pre class="r"><code># reproductive condition
+full &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)</code></pre>
+<pre><code>## boundary (singular) fit: see ?isSingular</code></pre>
+<pre class="r"><code>reduced &lt;- lmer(data = d, duration ~ parity + (1 + reprocondition | subject) + 
+    (1 + parity | subject), REML = FALSE)</code></pre>
+<pre><code>## boundary (singular) fit: see ?isSingular</code></pre>
+<pre class="r"><code>anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
+<pre><code>## Data: d
+## Models:
+## reduced: duration ~ parity + (1 + reprocondition | subject) + (1 + parity | 
+## reduced:     subject)
+## full: duration ~ reprocondition + parity + (1 + reprocondition | subject) + 
+## full:     (1 + parity | subject)
+##         Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(&gt;Chisq)   
+## reduced  9 840.23 862.11 -411.11   822.23                            
+## full    10 833.63 857.94 -406.82   813.63 8.5963      1   0.003368 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Now for parity:</p>
+<pre class="r"><code>full &lt;- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)</code></pre>
+<pre><code>## boundary (singular) fit: see ?isSingular</code></pre>
+<pre class="r"><code>null &lt;- lmer(data = d, duration ~ reprocondition + (1 + reprocondition | subject) + 
+    (1 + parity | subject), REML = FALSE)</code></pre>
+<pre><code>## boundary (singular) fit: see ?isSingular</code></pre>
+<pre class="r"><code>anova(reduced, full, test = &quot;Chisq&quot;)</code></pre>
+<pre><code>## Data: d
+## Models:
+## reduced: duration ~ parity + (1 + reprocondition | subject) + (1 + parity | 
+## reduced:     subject)
+## full: duration ~ reprocondition + parity + (1 + reprocondition | subject) + 
+## full:     (1 + parity | subject)
+##         Df    AIC    BIC  logLik deviance  Chisq Chi Df Pr(&gt;Chisq)   
+## reduced  9 840.23 862.11 -411.11   822.23                            
+## full    10 833.63 857.94 -406.82   813.63 8.5963      1   0.003368 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Note that in both cases, we get a significant LRT, but we also get warnings that our null models “failed to converge”. Lack of convergence is sometimes due to having a LOT of parameters we are trying to estimate relative to the number of observations we have, though in this case the full model has more parameters than the reduced model. Dealing with lack of convergence in fitting maximum likelihood models is beyond what we can cover here, so I encourage you to explore that on your own :)</p>
+<p><strong>DETERMINING MODEL FIT</strong></p>
+<p>For a long time, the appropriateness of our mixed-models was assessed as we did above: by determining the significance of each fixed effect using a LRT. Once information theoretic approaches became popular, we switched over to assessing model fit using AIC, but remember that AIC can only tell us <em>relative</em> fit, not whether it is a good fit, overall.</p>
+<p>In 2013, Nakagawa &amp; Schielzeth changed that by publishing a simple and effective method for getting an R2 value for generalized linear mixed models (recall, too, that linear mixed models are a specific type of GLMM, so this method can be used with LMM, as well). They point out that AIC has some critical limitations for expressing how well a model fits a dataset:</p>
+<ul>
+<li>While AIC provides an estimate of the relative fit of various models, it does not say anything about the absolute fit</li>
+<li>AIC cannot address the amount of variance explained by a model</li>
+<li>AIC is not comparable across datasets, and so fit is not generalizeable</li>
+</ul>
+<p>In their paper, Nakagawa &amp; Schielzeth propose two different measures of ‘variance explained’ for mixed models: - Marginal (R<sup>2</sup><sub>GLMM(m)</sub>): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects. - Conditional (R<sup>2</sup><sub>GLMM(c)</sub>): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.</p>
 </div>
 </div>
 

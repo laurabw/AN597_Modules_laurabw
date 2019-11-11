@@ -189,4 +189,127 @@ The coefficient “parityP” is the *β* coefficient for the categorical effect
 
 The INTERCEPT in this case is the grooming duration associated with nulliparous, NONPOP females. Like the lm() function, the lmer() took whatever factor level came first in the alphabet to be the reference level for each fixed effect variable.
 
-Let’s also look at the coefficients coming out of the model. 
+Let’s also look at the coefficients coming out of the model:
+
+```{r}
+coefficients(lme)
+```
+
+We can see the separate intercepts, or “baseline” level of grooming received, associated with each female when they are (presumably) nulliparous and in a NONPOP reproductive condition. Note that not all females are, necessarily, ever seen in a particular parity or reproductive condition
+
+**STATISTICAL SIGNIFICANCE IN MIXED MODELS**
+
+In **mixed effects models**, it is not as straightfoward to determine p values associated with either overall models or individual coefficients as it is for standard linear models. However, using **likelihood ratio tests**, which we previously used for comparing generalized linear models, is one common approach. Likelihood is the probability of seeing the data we have actually collected *given* a particular model. The logic of the likelihood ratio test is to compare the likelihood of two models with each other, i.e., a model that includes the factor that we are interested in versus a reduced, nested model with that factor excluded.
+
+So… if we are interested in the effect of reproductive condition on grooming duration we could compare:
+
+*grooming duration ~ condition + parity + (1|subject) + ϵ*
+
+*grooming duration ~ parity + (1|subject) + ϵ*
+
+In ***R***, we would do this as follows:
+
+```{r}
+full <- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), REML = FALSE)
+summary(full)
+```
+
+```{r}
+reduced <- lmer(data = d, duration ~ parity + (1 | subject), REML = FALSE)
+summary(reduced)
+```
+
+*NOTE: Here, we added the argument REML=FALSE to the lmer() function. This is necessary to do when we want to compare models using the likelihood ratio test. Basically, REML uses a different algorithm to determine likelihood values than ordinary likelihood, and, if we want to use these likelihoods to execute an LRT, we need to use ordinary likelihood. See this site for a more complete explanation of this issue.*
+
+We perform the likelihood ratio test using the anova() function:
+
+```{r}
+anova(reduced, full, test = "Chisq")
+```
+
+The results tell us that the model containing *reproductive condition* fits the data better than a null model lacking this variable. What about *parity*?
+
+```{r}
+full <- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), REML = FALSE)
+reduced <- lmer(data = d, duration ~ reprocondition + (1 | subject), REML = FALSE)
+anova(reduced, full, test = "Chisq")
+```
+
+Based on this result, including *parity *also significantly improves the fit of our model.
+
+**CHALLENGE 2**
+
+Construct a model that includes an interaction of *reproductive condition* and *parity* and compare it to a model without the interaction term. Is the interaction of these two fixed effects significant?
+
+```{r}
+full <- lmer(data = d, duration ~ reprocondition * parity + (1 | subject), REML = FALSE)
+reduced <- lmer(data = d, duration ~ reprocondition + parity + (1 | subject), 
+    REML = FALSE)
+anova(reduced, full, test = "Chisq")
+```
+
+**RANDOM SLOPE MODELS**
+
+In the exercise above, we included only estimation of a separate intercept for each female and presumed that the same relationship between grooming duration and reproductive condition + parity obtained for all females. But we can also allow that relationship to vary across subjects. We would indicate this model in formula notation as follows:
+
+```{r}
+lme <- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)
+summary(lme)
+```
+
+*Me: Check help to see what "isSingular" is by typing ?isSingular into the console and it will pop up on Help section on R Studio.*
+
+*Here is what it said:*
+
+    *Test fitted model for (near) singularity*
+    **Description:**
+    Evaluates whether a fitted mixed model is singular, i.e. the parameters are on the boundary of the feasible
+    parameter space: variances of one or more linear combinations of effects are (close to) zero.
+
+Here, we have changed the random effects, which now look a little more complicated. The notation “(1 + reprocondition|subject)” tells the model to estimate differing baseline levels of grooming duration (the intercept, represented by 1) as well as differing responses to the main factor in question, which is reproductive condition in this case. We do the same for parity.
+
+Looking at the coefficients of the new model, we see the effects. Each female now has a different intercept and a different coefficient for the slopes of grooming duration as a function of both reproductive condition and parity.
+
+```{r}
+coefficients(lme)
+```
+
+To then get p values associated with each of the fixed factors, we could use LRTs…
+
+First, for reproductive condition:
+
+```{r}
+# reproductive condition
+full <- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)
+reduced <- lmer(data = d, duration ~ parity + (1 + reprocondition | subject) + 
+    (1 + parity | subject), REML = FALSE)
+anova(reduced, full, test = "Chisq")
+```
+
+Now for parity:
+
+```{r}
+full <- lmer(data = d, duration ~ reprocondition + parity + (1 + reprocondition | 
+    subject) + (1 + parity | subject), REML = FALSE)
+null <- lmer(data = d, duration ~ reprocondition + (1 + reprocondition | subject) + 
+    (1 + parity | subject), REML = FALSE)
+anova(reduced, full, test = "Chisq")
+```
+
+Note that in both cases, we get a significant LRT, but we also get warnings that our null models “failed to converge”. Lack of convergence is sometimes due to having a LOT of parameters we are trying to estimate relative to the number of observations we have, though in this case the full model has more parameters than the reduced model. Dealing with lack of convergence in fitting maximum likelihood models is beyond what we can cover here, so I encourage you to explore that on your own :)
+
+**DETERMINING MODEL FIT**
+
+For a long time, the appropriateness of our mixed-models was assessed as we did above: by determining the significance of each fixed effect using a LRT. Once information theoretic approaches became popular, we switched over to assessing model fit using AIC, but remember that AIC can only tell us *relative* fit, not whether it is a good fit, overall.
+
+In 2013, Nakagawa & Schielzeth changed that by publishing a simple and effective method for getting an R2 value for generalized linear mixed models (recall, too, that linear mixed models are a specific type of GLMM, so this method can be used with LMM, as well). They point out that AIC has some critical limitations for expressing how well a model fits a dataset:
+
+- While AIC provides an estimate of the relative fit of various models, it does not say anything about the absolute fit
+- AIC cannot address the amount of variance explained by a model
+- AIC is not comparable across datasets, and so fit is not generalizeable
+
+In their paper, Nakagawa & Schielzeth propose two different measures of ‘variance explained’ for mixed models:
+- Marginal (R^2^~GLMM(m)~): is variance explained on the latent (or link) scale rather than the original scale; we can interpret this as the variance explained by only the fixed effects.
+- Conditional (R^2^~GLMM(c)~): is variance explained by fixed and random factors; put another way, this is the variance explained by the entire model.
